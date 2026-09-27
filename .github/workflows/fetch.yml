@@ -1,0 +1,28 @@
+name: fetch-photos
+on:
+  push:
+    branches: [photo-relay]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fetch:
+    if: "!contains(github.event.head_commit.message, 'Add listing photos')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download
+        run: |
+          mkdir -p photos
+          while read -r u; do
+            [ -z "$u" ] && continue
+            f="photos/$(echo "${u#*/uploads/}" | tr / _)"
+            curl -sfL --retry 3 -m 60 -A "Mozilla/5.0" -e "https://www.eldoradoranch.com/real-estate/" -o "$f" "$u" || echo "FAIL $u" >> photos/failed.txt
+          done < urls.txt
+          ls photos | wc -l
+      - name: Commit
+        run: |
+          git config user.name "photo-relay"
+          git config user.email "photo-relay@users.noreply.github.com"
+          git add photos
+          git commit -m "Add listing photos" && git push
